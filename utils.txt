@@ -1,0 +1,16 @@
+Stack:
+- Python 3.10+ (recommandé 3.11)
+- FastAPI
+- Uvicorn
+- SQLModel
+- SQLite
+
+Installation:
+python -m venv .venv
+.venv\Scripts\activate
+
+pip install fastapi uvicorn sqlmodel
+
+Lancement: python main.py
+
+Swagger : http://localhost:8000/docs
