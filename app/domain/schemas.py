@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -33,3 +35,16 @@ class TicketUpdate(BaseModel):
     status: TicketStatus | None = None
     priority: TicketPriority | None = None
     category_id: int | None = None
+
+class McpTriageSuggestion(BaseModel):
+    category_name: str
+    priority: str
+    status: str
+    summary: str
+    rationale: list[str]
+    draft_reply: str | None = None
+
+class McpTriageResult(BaseModel):
+    ticket_id: int
+    suggestion: McpTriageSuggestion
+    patch_to_apply: dict[str, Any]

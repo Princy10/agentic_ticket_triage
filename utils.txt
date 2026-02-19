@@ -12,8 +12,12 @@ python -m venv .venv
 python.exe -m pip install --upgrade pip
 pip install fastapi uvicorn sqlmodel
 pip install "pydantic-ai-slim[openai]"
+pip install -U langgraph
+pip install -U langgraph
 
-Lancement: python main.py
+
+Lancement: python main.py uvicorn app.api.app:app --reload --port 8000
+npx -y @modelcontextprotocol/inspector
 
 Swagger : http://localhost:8000/docs
 
