@@ -13,10 +13,11 @@ python.exe -m pip install --upgrade pip
 pip install fastapi uvicorn sqlmodel
 pip install "pydantic-ai-slim[openai]"
 pip install -U langgraph
-pip install -U langgraph
+pip install "pydantic-ai-slim[mcp]"
 
 
-Lancement: python main.py uvicorn app.api.app:app --reload --port 8000
+Lancement: python main.py / uvicorn app.api.app:app --reload --port 8000
+python scripts/mcp_chat.py
 npx -y @modelcontextprotocol/inspector
 
 Swagger : http://localhost:8000/docs
@@ -24,6 +25,9 @@ Swagger : http://localhost:8000/docs
 Ollama:
 ollama --version
 ollama pull llama3.1:8b
-ollama pull llama3.2:3b (plus leger pour cpu)
-
 test: curl http://localhost:11434/v1/models
+
+Ex Prompt:
+- Suggestion: Triage le ticket 2 et explique brièvement pourquoi.
+- Apply: Applique le triage sur le ticket 2.
+- Batch: Applique le triage sur les tickets 1 à 5, et résume les changements.

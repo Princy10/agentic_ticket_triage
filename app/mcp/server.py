@@ -32,6 +32,15 @@ mcp.settings.streamable_http_path = "/"
 def _session() -> Session:
     return Session(engine)
 
+def _cats_by_id(session: Session) -> dict[int, str]:
+    cats = session.exec(select(Category).order_by(Category.id)).all()
+    return {c.id: c.name for c in cats}
+
+def _ticket_json(t: Ticket, cats_map: dict[int, str]) -> dict:
+    d = t.model_dump(mode="json")
+    cid = d.get("category_id")
+    d["category_name"] = cats_map.get(cid) if cid is not None else None
+    return d
 
 @mcp.tool()
 def list_categories() -> list[dict[str, Any]]:
@@ -63,13 +72,13 @@ def list_tickets(
 
 
 @mcp.tool()
-def get_ticket(ticket_id: int) -> dict[str, Any]:
-    """Récupérer un ticket par id."""
+def get_ticket(ticket_id: int) -> dict:
     with _session() as s:
         t = s.get(Ticket, ticket_id)
         if not t:
             return {"error": "Ticket introuvable", "ticket_id": ticket_id}
-        return t.model_dump(mode="json")
+        cats_map = _cats_by_id(s)
+        return _ticket_json(t, cats_map)
 
 
 @mcp.tool()
@@ -118,7 +127,9 @@ def update_ticket(
         s.add(t)
         s.commit()
         s.refresh(t)
-        return t.model_dump(mode="json")
+
+        cats_map = _cats_by_id(s)
+        return _ticket_json(t, cats_map)
 
 
 @mcp.tool()
@@ -226,10 +237,11 @@ async def triage_apply(ticket_id: int) -> CallToolResult:
         s.commit()
         s.refresh(t)
 
+        cats_map = _cats_by_id(s)
         structured = {
             "ticket_id": ticket_id,
             "applied_patch": patch,
-            "updated_ticket": t.model_dump(mode="json"),
+            "updated_ticket": _ticket_json(t, cats_map),
         }
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
