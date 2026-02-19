@@ -9,8 +9,17 @@ Installation:
 python -m venv .venv
 .venv\Scripts\activate
 
+python.exe -m pip install --upgrade pip
 pip install fastapi uvicorn sqlmodel
+pip install "pydantic-ai-slim[openai]"
 
 Lancement: python main.py
 
 Swagger : http://localhost:8000/docs
+
+Ollama:
+ollama --version
+ollama pull llama3.1:8b
+ollama pull llama3.2:3b (plus leger pour cpu)
+
+test: curl http://localhost:11434/v1/models
