@@ -59,7 +59,7 @@ def list_tickets(
         if category_id is not None:
             q = q.where(Ticket.category_id == category_id)
         rows = s.exec(q).all()
-        return [t.model_dump() for t in rows]
+        return [t.model_dump(mode="json") for t in rows]
 
 
 @mcp.tool()
@@ -69,7 +69,7 @@ def get_ticket(ticket_id: int) -> dict[str, Any]:
         t = s.get(Ticket, ticket_id)
         if not t:
             return {"error": "Ticket introuvable", "ticket_id": ticket_id}
-        return t.model_dump()
+        return t.model_dump(mode="json")
 
 
 @mcp.tool()
@@ -92,7 +92,7 @@ def create_ticket(
         s.add(t)
         s.commit()
         s.refresh(t)
-        return t.model_dump()
+        return t.model_dump(mode="json")
 
 
 @mcp.tool()
@@ -118,7 +118,7 @@ def update_ticket(
         s.add(t)
         s.commit()
         s.refresh(t)
-        return t.model_dump()
+        return t.model_dump(mode="json")
 
 
 @mcp.tool()
@@ -166,6 +166,71 @@ async def triage_suggest(ticket_id: int) -> Annotated[CallToolResult, McpTriageR
             "patch_to_apply": patch,
         }
 
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
+            structuredContent=structured,
+        )
+
+@mcp.tool()
+async def triage_apply(ticket_id: int) -> CallToolResult:
+    with Session(engine) as s:
+        t = s.get(Ticket, ticket_id)
+        if not t:
+            structured = {"ticket_id": ticket_id, "error": "Ticket introuvable"}
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
+                structuredContent=structured,
+                isError=True,
+            )
+
+        cats = s.exec(select(Category).order_by(Category.id)).all()
+        if not cats:
+            structured = {"ticket_id": ticket_id, "error": "Aucune catégorie en base"}
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
+                structuredContent=structured,
+                isError=True,
+            )
+
+        allowed_names = [c.name for c in cats]
+        suggestion = await suggest_triage(t.title, t.description, allowed_names)
+
+        matched = next((c for c in cats if c.name == suggestion.category_name), None)
+        if not matched:
+            structured = {
+                "ticket_id": ticket_id,
+                "error": "category_name hors liste exacte",
+                "allowed_categories": allowed_names,
+                "got": suggestion.category_name,
+            }
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
+                structuredContent=structured,
+                isError=True,
+            )
+
+        patch = {
+            "category_id": matched.id,
+            "priority": suggestion.priority.value,
+            "status": suggestion.status.value,
+        }
+        name_to_id = {c.name: c.id for c in cats}
+        patch = apply_guardrails(t, patch, category_name_to_id=name_to_id)
+
+        # appliquer en DB
+        t.category_id = patch.get("category_id")
+        t.priority = patch.get("priority")
+        t.status = patch.get("status")
+
+        s.add(t)
+        s.commit()
+        s.refresh(t)
+
+        structured = {
+            "ticket_id": ticket_id,
+            "applied_patch": patch,
+            "updated_ticket": t.model_dump(mode="json"),
+        }
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
             structuredContent=structured,
