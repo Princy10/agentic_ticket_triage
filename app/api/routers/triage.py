@@ -12,6 +12,7 @@ from app.services.category_service import list_categories
 from app.agents.triage_agent import suggest_triage, TriageParseError
 from app.services.triage_policy import apply_guardrails
 from app.graphs.triage_graph import build_triage_graph
+from app.graphs.triage_graph_multi import build_triage_graph_multi
 
 logger = logging.getLogger("triage_router")
 router = APIRouter(prefix="/triage", tags=["Triage (LLM)"])
@@ -76,6 +77,19 @@ async def triage_suggest(ticket_id: int, session: Session = Depends(SessionDep))
 @router.post("/{ticket_id}/suggest-graph")
 async def triage_suggest_graph(ticket_id: int, session: Session = Depends(SessionDep)):
     graph = build_triage_graph(session)
+
+    try:
+        out = await graph.ainvoke({"ticket_id": ticket_id})
+        return out["response"]
+    except ValueError as e:
+        msg = str(e)
+        if "introuvable" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+
+@router.post("/{ticket_id}/suggest-multi")
+async def triage_suggest_multi(ticket_id: int, session: Session = Depends(SessionDep)):
+    graph = build_triage_graph_multi(session)
 
     try:
         out = await graph.ainvoke({"ticket_id": ticket_id})
